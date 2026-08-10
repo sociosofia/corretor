@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Corretor OMR · captura guiada</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div><b>Corretor OMR</b><small>captura guiada · v0.4</small></div>
+  <span id="counter">0 capturas</span>
+</header>
+<main>
+  <section class="card cameraCard">
+    <div class="cameraWrap" id="cameraWrap">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="status" id="status">Toque em “Ligar câmera”</div>
+      <div class="flash" id="flash">PLIM ✓</div>
+    </div>
+  </section>
+
+  <section class="card controls">
+    <button class="primary" id="startBtn">Ligar câmera</button>
+    <button id="manualBtn" disabled>Capturar agora</button>
+    <label class="fileBtn">Testar foto<input id="fileInput" type="file" accept="image/*"></label>
+    <button class="danger" id="clearBtn">Limpar sessão</button>
+  </section>
+
+  <section class="card meta">
+    <div><b>QR</b><code id="qrText">—</code></div>
+    <div><b>Marcadores</b><span id="markersText">0/4</span></div>
+    <div><b>Alinhamento</b><span id="alignmentText">—</span></div>
+    <div><b>Estado</b><span id="stateText">aguardando</span></div>
+  </section>
+
+  <section id="dupbox" class="dupbox"></section>
+
+  <section class="card">
+    <div class="sectionTitle">Última leitura</div>
+    <table>
+      <thead><tr><th>Questão</th><th>Leitura</th><th>Estado</th><th>Índice</th></tr></thead>
+      <tbody id="resultBody"><tr><td colspan="4">Nenhuma folha capturada.</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card note">
+    <b>Como usar:</b> alinhe os quatro quadrados impressos aos quatro cantos do retângulo amarelo. Cada canto fica verde quando estiver suficientemente próximo. Quando QR + 4 marcadores + alinhamento permanecerem estáveis, a captura acontece automaticamente.
+    <br><br><b>Nesta versão pública nada é enviado ao Google.</b>
+  </section>
+</main>
+<canvas id="work" hidden></canvas>
+<script src="vision.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
