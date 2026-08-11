@@ -5,9 +5,13 @@ const OMR_MODELS={
     maxQuestions:8,
     colU:{A:(180-20)/1160,B:(335-20)/1160,C:(487-20)/1160,D:(639-20)/1160,E:(793-20)/1160},
     rowV:{1:(82-20)/500,2:(138-20)/500,3:(196-20)/500,4:(254-20)/500,5:(311-20)/500,6:(369-20)/500,7:(425-20)/500,8:(483-20)/500},
-    radiusRatio:.0112
+    radiusRatio:.0112,
+    referenceWidth:1160,
+    referenceHeight:500
   }
 };
+
+const GUIDE_ASPECT=1160/500;
 
 function getOmrModel(id){return OMR_MODELS[String(id||'')]||null}
 function lum(r,g,b){return .299*r+.587*g+.114*b}
@@ -26,9 +30,9 @@ function detectMarkers(imgData,qrBox=null){
   const raw=[cand[a],cand[b],cand[c],cand[e]],p=orderCorners(raw),[tl,tr,bl,br]=p;if(new Set(p.map(z=>`${Math.round(z.x)},${Math.round(z.y)}`)).size<4)continue;
   const top=Math.hypot(tr.x-tl.x,tr.y-tl.y),bot=Math.hypot(br.x-bl.x,br.y-bl.y),left=Math.hypot(bl.x-tl.x,bl.y-tl.y),right=Math.hypot(br.x-tr.x,br.y-tr.y),d1=Math.hypot(br.x-tl.x,br.y-tl.y),d2=Math.hypot(bl.x-tr.x,bl.y-tr.y);
   if(top<W*.28||bot<W*.28||left<H*.12||right<H*.12)continue;const ratio=((top+bot)/2)/((left+right)/2);if(ratio<1.60||ratio>3.05)continue;
-  const edgeSym=Math.abs(top-bot)/Math.max(top,bot)+Math.abs(left-right)/Math.max(left,right)+Math.abs(d1-d2)/Math.max(d1,d2),sizes=raw.map(z=>(z.w+z.h)/2),mean=sizes.reduce((x,y)=>x+y,0)/4,sizeSpread=Math.max(...sizes.map(x=>Math.abs(x-mean)/mean));if(edgeSym>.42||sizeSpread>.30)continue;
+  const edgeSym=Math.abs(top-bot)/Math.max(top,bot)+Math.abs(left-right)/Math.max(left,right)+Math.abs(d1-d2)/Math.max(d1,d2),sizes=raw.map(z=>(z.w+z.h)/2),mean=sizes.reduce((x,y)=>x+y,0)/4,sizeSpread=Math.max(...sizes.map(x=>Math.abs(x-mean)/mean));if(edgeSym>.55||sizeSpread>.40)continue;
   if(qrBox){const qcx=qrBox.x+qrBox.width/2,qcy=qrBox.y+qrBox.height/2,minX=Math.min(tl.x,tr.x,bl.x,br.x),maxX=Math.max(tl.x,tr.x,bl.x,br.x),minY=Math.min(tl.y,tr.y,bl.y,br.y),maxY=Math.max(tl.y,tr.y,bl.y,br.y),nx=(qcx-minX)/(maxX-minX),ny=(qcy-minY)/(maxY-minY),rectW=maxX-minX,rectH=maxY-minY;if(!(nx>.58&&nx<.97&&ny>.08&&ny<.92))continue;if(rectW<qrBox.width*2.1||rectW>qrBox.width*9.5)continue;if(rectH<qrBox.height*1.25||rectH>qrBox.height*5.2)continue}
-  const rectArea=((top+bot)/2)*((left+right)/2),score=rectArea-rectArea*edgeSym*.75-rectArea*sizeSpread*.90;if(score>bestScore){bestScore=score;best=p}
+  const rectArea=((top+bot)/2)*((left+right)/2),score=rectArea-rectArea*edgeSym*.60-rectArea*sizeSpread*.70;if(score>bestScore){bestScore=score;best=p}
  }
  return best||[];
 }
@@ -41,6 +45,40 @@ function bubbleScores(img,c,modelId='OMR-08-v1',qtd=8){
  return out;
 }
 function classify(scores,qtd=8){const rows=[];for(let q=1;q<=qtd;q++){const s=scores[q],strong=[...'ABCDE'].filter(l=>s[l]>=VALID),susp=[...'ABCDE'].filter(l=>s[l]>=REVIEW&&s[l]<VALID);let state,answer;if(strong.length>=2){state='dupla';answer=strong.join('/')}else if(strong.length===1){state='válida';answer=strong[0]}else if(susp.length){state='revisar';answer=susp.sort((a,b)=>s[b]-s[a])[0]}else{state='em branco';answer='—'}rows.push({q,answer,state,max:Math.max(...Object.values(s))})}return rows}
-function guideTargets(W,H){return[{x:W*.10,y:H*.17},{x:W*.90,y:H*.17},{x:W*.10,y:H*.67},{x:W*.90,y:H*.67}]}
-function alignmentInfo(c,W,H){if(c.length!==4)return{ok:false,near:false,dists:[]};const t=guideTargets(W,H),diag=Math.hypot(W,H),dists=c.map((p,i)=>Math.hypot(p.x-t[i].x,p.y-t[i].y)/diag),max=Math.max(...dists);return{ok:max<.055,near:max<.095,dists}}
+
+/* A moldura visual replica a proporção CANÔNICA dos quatro marcadores: 1160 x 500 = 2,32:1.
+   Ela serve para escala/centralização; a perspectiva da câmera pode formar um trapézio razoável,
+   que será corrigido usando os quatro marcadores detectados. */
+function guideTargets(W,H){
+ const maxW=W*.84,maxH=H*.56;
+ let gw=maxW,gh=gw/GUIDE_ASPECT;
+ if(gh>maxH){gh=maxH;gw=gh*GUIDE_ASPECT}
+ const cx=W*.50,cy=H*.42;
+ return[
+  {x:cx-gw/2,y:cy-gh/2},
+  {x:cx+gw/2,y:cy-gh/2},
+  {x:cx-gw/2,y:cy+gh/2},
+  {x:cx+gw/2,y:cy+gh/2}
+ ];
+}
+function alignmentInfo(c,W,H){
+ if(c.length!==4)return{ok:false,near:false,dists:[]};
+ const t=guideTargets(W,H),diag=Math.hypot(W,H);
+ const rawDists=c.map((p,i)=>Math.hypot(p.x-t[i].x,p.y-t[i].y)/diag);
+ const [tl,tr,bl,br]=c;
+ const top=Math.hypot(tr.x-tl.x,tr.y-tl.y),bot=Math.hypot(br.x-bl.x,br.y-bl.y),left=Math.hypot(bl.x-tl.x,bl.y-tl.y),right=Math.hypot(br.x-tr.x,br.y-tr.y);
+ const tw=Math.hypot(t[1].x-t[0].x,t[1].y-t[0].y),th=Math.hypot(t[2].x-t[0].x,t[2].y-t[0].y);
+ const qw=(top+bot)/2,qh=(left+right)/2;
+ const cx=c.reduce((s,p)=>s+p.x,0)/4,cy=c.reduce((s,p)=>s+p.y,0)/4,tx=t.reduce((s,p)=>s+p.x,0)/4,ty=t.reduce((s,p)=>s+p.y,0)/4;
+ const centerDist=Math.hypot(cx-tx,cy-ty)/diag;
+ const perspective=Math.max(top/bot,bot/top,left/right,right/left);
+ const maxRaw=Math.max(...rawDists);
+ const scaleW=qw/tw,scaleH=qh/th;
+ const ok=centerDist<.060&&scaleW>.76&&scaleW<1.24&&scaleH>.66&&scaleH<1.34&&maxRaw<.130&&perspective<1.48;
+ const near=centerDist<.090&&scaleW>.64&&scaleW<1.38&&scaleH>.54&&scaleH<1.48&&maxRaw<.175&&perspective<1.70;
+ /* Escala visual: zonas verdes são deliberadamente mais generosas que na v0.5,
+    pois não queremos obrigar a projeção trapezoidal a coincidir com um retângulo perfeito. */
+ const dists=rawDists.map(d=>d*.52);
+ return{ok,near,dists,rawDists,centerDist,scaleW,scaleH,perspective};
+}
 function geomDistance(a,b){if(!a||!b||a.length!==4||b.length!==4)return 999;return a.reduce((s,p,i)=>s+Math.hypot(p.x-b[i].x,p.y-b[i].y),0)/4}
