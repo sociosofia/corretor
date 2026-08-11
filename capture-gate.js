@@ -1,28 +1,42 @@
-/* Sociosofia OMR · v0.12
-   Captura humana + QR como âncora geométrica primária quando cornerPoints
-   estiverem disponíveis. Os marcadores visuais passam a ser fallback/validação.
-
-   Nesta versão a classificação passa a considerar não só o valor absoluto da
-   bolha vencedora, mas também sua separação da segunda colocada e o baseline
-   das demais alternativas da mesma questão.
+/* Sociosofia OMR · v1.0 operacional
+   Captura por micro-rajada: coleta vários quadros bons dentro de uma janela curta,
+   pontua geometria + nitidez e usa o melhor. QR continua como âncora primária.
 */
 
-let captureLock={token:'',hits:0,startedAt:0,lastGoodAt:0,best:null,bestScore:Infinity};
+let captureLock={token:'',hits:0,startedAt:0,lastGoodAt:0,best:null,bestScore:Infinity,bestSharpness:0};
 
 function resetCaptureLock(){
-  captureLock={token:'',hits:0,startedAt:0,lastGoodAt:0,best:null,bestScore:Infinity};
+  captureLock={token:'',hits:0,startedAt:0,lastGoodAt:0,best:null,bestScore:Infinity,bestSharpness:0};
 }
 
-function captureQuality_(align){
+function frameSharpness_(img){
+  if(!img?.data||!img.width||!img.height)return 0;
+  const W=img.width,H=img.height,d=img.data;
+  let total=0,n=0;
+  for(let y=8;y<H-8;y+=12){
+    for(let x=8;x<W-8;x+=12){
+      const i=(y*W+x)*4,ix=(y*W+x+2)*4,iy=((y+2)*W+x)*4;
+      const l=lum(d[i],d[i+1],d[i+2]);
+      total+=Math.abs(l-lum(d[ix],d[ix+1],d[ix+2]));
+      total+=Math.abs(l-lum(d[iy],d[iy+1],d[iy+2]));
+      n+=2;
+    }
+  }
+  return n?total/n:0;
+}
+
+function captureQuality_(align,img,anchor){
   const corner=align.rawDists?.length?Math.max(...align.rawDists):0;
   const center=Number(align.centerDist||0);
   const perspective=Math.max(0,Number(align.perspective||1)-1)*.15;
-  return corner+center+perspective;
+  const sharpness=frameSharpness_(img);
+  const sharpBonus=Math.min(55,sharpness)*.0016;
+  const anchorBonus=anchor==='QR'?.075:0;
+  return {score:corner+center+perspective-sharpBonus-anchorBonus,sharpness};
 }
 
-/* Calibração relativa: evita simplesmente reduzir VALID=.65.
-   Uma marca moderada pode ser válida se estiver claramente separada de A–E;
-   duas marcas competitivas continuam em revisão/dupla. */
+/* Classificação relativa: a decisão considera intensidade, separação da segunda
+   alternativa e baseline das demais. Mantemos comportamento conservador. */
 classify = function(scores,qtd=8){
   const rows=[];
   for(let q=1;q<=qtd;q++){
@@ -33,7 +47,6 @@ classify = function(scores,qtd=8){
     const baseline=(rest[1]+rest[2])/2;
     const gap=top.v-second.v;
     const contrast=top.v-baseline;
-
     let state='em branco',answer='—';
 
     if(top.v>=.40 && second.v>=.38 && gap<.15){
@@ -51,8 +64,6 @@ classify = function(scores,qtd=8){
   return rows;
 };
 
-/* Exibe a margem Δ para a calibração de campo.
-   Ex.: 0.46 · Δ0.28 significa vencedor 0.46 e segunda alternativa 0.18. */
 render = function(rows){
   resultBody.innerHTML='';
   for(const r of rows){
@@ -84,9 +95,9 @@ analyzeLive=async function(){
   const good=(corners||[]).length===4&&align.ok&&qr.text.startsWith('C1:');
 
   if(!good){
-    if(captureLock.hits>0 && now-captureLock.lastGoodAt<750){
-      status('Enquadramento travado ✓ — pode oscilar um pouco');
-      stateText.textContent='travado';
+    if(captureLock.hits>0 && now-captureLock.lastGoodAt<850){
+      status(`Rajada ${captureLock.hits}/5 ✓ — pequena oscilação tolerada`);
+      stateText.textContent='selecionando quadro';
       return;
     }
 
@@ -102,7 +113,7 @@ analyzeLive=async function(){
     return;
   }
 
-  if(captureLock.token!==qr.text || (captureLock.startedAt && now-captureLock.startedAt>1400)){
+  if(captureLock.token!==qr.text || (captureLock.startedAt && now-captureLock.startedAt>1700)){
     resetCaptureLock();
     captureLock.token=qr.text;
     captureLock.startedAt=now;
@@ -111,21 +122,32 @@ analyzeLive=async function(){
   captureLock.hits++;
   captureLock.lastGoodAt=now;
 
-  const score=captureQuality_(align)+(anchor==='QR'?-.06:0);
-  if(score<captureLock.bestScore){
-    captureLock.bestScore=score;
-    captureLock.best={token:qr.text,corners:corners.map(p=>({x:p.x,y:p.y})),img:img,anchor};
+  const quality=captureQuality_(align,img,anchor);
+  if(quality.score<captureLock.bestScore){
+    captureLock.bestScore=quality.score;
+    captureLock.bestSharpness=quality.sharpness;
+    captureLock.best={token:qr.text,corners:corners.map(p=>({x:p.x,y:p.y})),img,anchor};
   }
 
-  if(captureLock.hits<2){
-    status(anchor==='QR'?'QR ancorado ✓ — só mais um instante':'Enquadrado ✓ — só mais um instante');
-    stateText.textContent=anchor==='QR'?'QR ancorado':'travado';
+  const elapsed=now-captureLock.startedAt;
+  const enoughFrames=captureLock.hits>=5;
+  const enoughTime=elapsed>=650&&captureLock.hits>=3;
+  if(!enoughFrames&&!enoughTime){
+    status(`${anchor==='QR'?'QR ancorado':'Enquadrado'} ✓ · rajada ${captureLock.hits}/5`);
+    stateText.textContent='elegendo melhor quadro';
     return;
   }
 
   const snap=captureLock.best||{token:qr.text,corners,img,anchor};
+  window.__omrLastBurst={
+    frames:captureLock.hits,
+    elapsedMs:Math.round(elapsed),
+    anchor:snap.anchor,
+    bestScore:Number(captureLock.bestScore),
+    sharpness:Number(captureLock.bestSharpness)
+  };
   resetCaptureLock();
-  status('Capturando…');
+  status('Melhor quadro escolhido ✓');
   stateText.textContent='capturando';
   captureCurrent(snap.token,snap.corners,snap.img);
 };
