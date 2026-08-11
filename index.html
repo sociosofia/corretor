@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
-<title>Corretor OMR · captura guiada</title>
+<title>Corretor OMR · ambiente do professor</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>captura guiada · v0.4</small></div>
-  <span id="counter">0 capturas</span>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v0.5</small></div>
+  <span id="counter">0 confirmadas</span>
 </header>
 <main>
   <section class="card cameraCard">
@@ -27,6 +27,17 @@
     <button id="manualBtn" disabled>Capturar agora</button>
     <label class="fileBtn">Testar foto<input id="fileInput" type="file" accept="image/*"></label>
     <button class="danger" id="clearBtn">Limpar sessão</button>
+  </section>
+
+  <section class="card googleCard">
+    <div class="sectionHead">
+      <div><div class="sectionTitle">Google · backend</div><small>URL e chave ficam somente neste aparelho.</small></div>
+      <span id="googleBadge" class="connBadge off">não configurado</span>
+    </div>
+    <div class="googleActions">
+      <button id="configGoogleBtn">Configurar</button>
+      <button id="testGoogleBtn">Testar conexão</button>
+    </div>
   </section>
 
   <section class="card meta">
@@ -46,13 +57,58 @@
     </table>
   </section>
 
+  <section id="reviewCard" class="card reviewCard hidden">
+    <div class="sectionHead">
+      <div>
+        <div class="sectionTitle">Conferência antes de gravar</div>
+        <small id="proofMeta">—</small>
+      </div>
+      <span class="reviewTag">PROFESSOR</span>
+    </div>
+    <p class="reviewHelp">A câmera apenas propõe a leitura. Confira e resolva qualquer item marcado para revisão antes de enviar.</p>
+    <div id="reviewRows" class="reviewRows"></div>
+    <div id="sendStatus" class="sendStatus"></div>
+    <div class="reviewActions">
+      <button class="primary" id="sendGoogleBtn">Confirmar e enviar ao Google</button>
+      <button id="reprocessBtn">Ler novamente</button>
+    </div>
+  </section>
+
+  <section class="card flowCard">
+    <b>Dois ambientes</b>
+    <div class="flow">
+      <span><strong>Professor</strong> câmera → conferência → confirmação</span>
+      <i>→</i>
+      <span><strong>Aluno</strong> QR de resultado → devolutiva liberada</span>
+    </div>
+  </section>
+
   <section class="card note">
-    <b>Como usar:</b> alinhe os quatro quadrados impressos aos quatro cantos do retângulo amarelo. Cada canto fica verde quando estiver suficientemente próximo. Quando QR + 4 marcadores + alinhamento permanecerem estáveis, a captura acontece automaticamente.
-    <br><br><b>Nesta versão pública nada é enviado ao Google.</b>
+    <b>Captura guiada:</b> alinhe os quatro quadrados impressos aos quatro cantos do retângulo amarelo. A captura ocorre com QR + 4 marcadores + alinhamento estável.
+    <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
   </section>
 </main>
+
+<dialog id="googleDialog">
+  <form method="dialog" class="dialogCard" id="googleForm">
+    <div class="sectionTitle">Conectar ao Apps Script</div>
+    <label>URL /exec do Web App
+      <input id="googleUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    </label>
+    <label>Chave do corretor
+      <input id="googleKey" type="password" placeholder="propriedade CORRETOR_CHAVE" autocomplete="new-password">
+    </label>
+    <p>Esses dados ficam no <code>localStorage</code> deste navegador; não são enviados ao GitHub.</p>
+    <div class="dialogActions">
+      <button value="cancel">Cancelar</button>
+      <button class="primary" id="saveGoogleBtn" value="default">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
 <canvas id="work" hidden></canvas>
 <script src="vision.js"></script>
+<script src="bridge.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
