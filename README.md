@@ -4,14 +4,16 @@ Protótipo público do leitor de folhas de respostas por câmera.
 
 ## Escopo deste repositório
 
-Este front-end deve conter apenas lógica de captura e leitura visual:
+Este front-end contém apenas lógica de captura e leitura visual:
 
 - câmera em HTTPS;
-- QR de correção como identificador opaco;
-- quatro marcadores de referência;
-- alinhamento guiado;
-- leitura OMR das oito respostas;
-- conferência local da captura.
+- QR de correção como identificador opaco e, quando possível, âncora geométrica;
+- marcadores de referência como validação/fallback;
+- alinhamento guiado com tolerância humana;
+- correção projetiva da perspectiva;
+- leitura OMR das respostas;
+- conferência humana antes do envio;
+- ponte local configurável para o Apps Script.
 
 ## Não colocar neste repositório
 
@@ -23,7 +25,7 @@ Este front-end deve conter apenas lógica de captura e leitura visual:
 - credenciais;
 - regras sensíveis de backend.
 
-A arquitetura prevista separa:
+A arquitetura separa:
 
 **GitHub Pages = olhos (câmera/OMR)**  
 **Apps Script = regras e validação**  
@@ -31,6 +33,4 @@ A arquitetura prevista separa:
 
 ## Estado atual
 
-`v0.4 — captura guiada`: o usuário alinha os quatro quadrados impressos aos quatro cantos da moldura. A captura automática só é armada quando QR + 4 marcadores + alinhamento ficam estáveis.
-
-Nesta versão nada é enviado ao Google.
+`v0.11 — QR como âncora`: para o modelo OMR-08-v1, os quatro cantos detectados do QR podem definir a homografia da folha inteira. Os quatro finders impressos permanecem como referência visual e fallback. O modo diagnóstico congela exatamente o quadro capturado e sobrepõe os pontos usados na leitura das bolhas.
