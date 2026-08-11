@@ -10,7 +10,7 @@
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>ambiente do professor · v1.0 operacional</small></div>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v1.1 operacional</small></div>
   <span id="counter">0 confirmadas</span>
 </header>
 <main>
@@ -38,6 +38,7 @@
     <div class="googleActions">
       <button id="configGoogleBtn">Configurar</button>
       <button id="testGoogleBtn">Testar conexão</button>
+      <button id="openReconcileBtn" disabled>Conciliar aplicações</button>
     </div>
   </section>
 
@@ -115,9 +116,9 @@
   </section>
 
   <section class="card flowCard">
-    <b>Correção e publicação são etapas diferentes</b>
+    <b>Correção, conciliação e publicação são etapas diferentes</b>
     <div class="flow">
-      <span><strong>Professor</strong> câmera → correção → análise → decisão de publicar</span>
+      <span><strong>Professor</strong> captura → correção → conciliação → análise → decisão de publicar</span>
       <i>→</i>
       <span><strong>Aluno</strong> QR de resultado → dados somente após publicação</span>
     </div>
@@ -126,6 +127,7 @@
   <section class="card note">
     <b>Captura:</b> o corretor faz uma micro-rajada, escolhe o melhor quadro pela geometria e nitidez e usa o QR como âncora principal. Leituras ambíguas não são confirmadas automaticamente.
     <br><br><b>Fila local:</b> respostas e metadados mínimos ficam no <code>localStorage</code> deste navegador até o Google confirmar. A fila pode ser enviada depois em um único comando.
+    <br><br><b>Conciliação:</b> o backend v0.3 compara as provas esperadas com as situações já conhecidas por turma e aplicação. Correções podem atravessar dias e lotes mistos antes do fechamento.
     <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
   </section>
 </main>
@@ -157,5 +159,6 @@
 <script src="capture-gate.js"></script>
 <script src="diagnostic.js"></script>
 <script src="series-mode.js"></script>
+<script src="reconciliation-link.js"></script>
 </body>
 </html>
