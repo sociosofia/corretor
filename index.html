@@ -6,10 +6,11 @@
 <meta name="theme-color" content="#111111">
 <title>Corretor OMR · ambiente do professor</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="series.css">
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>ambiente do professor · v0.11</small></div>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v1.0 operacional</small></div>
   <span id="counter">0 confirmadas</span>
 </header>
 <main>
@@ -40,6 +41,42 @@
     </div>
   </section>
 
+  <section class="card seriesCard">
+    <div class="sectionHead">
+      <div>
+        <div class="sectionTitle">Operação em série</div>
+        <small>Leituras seguras seguem sozinhas; qualquer dúvida para na revisão.</small>
+      </div>
+      <span id="seriesBadge" class="connBadge wait">verificando backend</span>
+    </div>
+
+    <div class="seriesOptions">
+      <label class="checkLine"><input id="autoSafe" type="checkbox" checked><span><b>Confirmar automaticamente leituras seguras</b><small>Somente 100% válidas, com margem de confiança e âncora QR.</small></span></label>
+      <label class="selectLine"><span><b>Depois de uma leitura segura</b><small>Mesmo no envio imediato, uma cópia fica primeiro na fila local até o Google confirmar.</small></span>
+        <select id="queueDestination">
+          <option value="immediate">Enviar ao Google na hora</option>
+          <option value="local">Guardar neste aparelho</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="queueStats">
+      <div><b id="queueReadyCount">0</b><span>prontas para envio</span></div>
+      <div><b id="queueReviewCount">0</b><span>para revisão</span></div>
+      <div><b id="queueTotalCount">0</b><span>total na fila local</span></div>
+    </div>
+
+    <div class="seriesActions">
+      <button class="primary" id="sendQueueBtn">Enviar fila pronta</button>
+      <button id="reviewNextBtn">Revisar próxima pendente</button>
+    </div>
+    <div id="batchStatus" class="sendStatus"></div>
+    <details class="queueDetails">
+      <summary>Ver fila local</summary>
+      <div id="queueList" class="queueList"></div>
+    </details>
+  </section>
+
   <section class="card meta">
     <div><b>QR</b><code id="qrText">—</code></div>
     <div><b>Marcadores</b><span id="markersText">0/4</span></div>
@@ -65,26 +102,30 @@
       </div>
       <span class="reviewTag">PROFESSOR</span>
     </div>
-    <p class="reviewHelp">A câmera apenas propõe a leitura. Confira e resolva qualquer item marcado para revisão antes de enviar.</p>
+    <p class="reviewHelp">A câmera propõe a leitura. O modo automático só passa adiante quando todos os itens atingem o piso de segurança.</p>
+    <div id="reviewSafety" class="reviewSafety"></div>
     <div id="reviewRows" class="reviewRows"></div>
     <div id="sendStatus" class="sendStatus"></div>
     <div class="reviewActions">
       <button class="primary" id="sendGoogleBtn">Confirmar e enviar ao Google</button>
+      <button id="saveQueueBtn">Confirmar e guardar</button>
+      <button id="stashReviewBtn">Separar para depois</button>
       <button id="reprocessBtn">Ler novamente</button>
     </div>
   </section>
 
   <section class="card flowCard">
-    <b>Dois ambientes</b>
+    <b>Correção e publicação são etapas diferentes</b>
     <div class="flow">
-      <span><strong>Professor</strong> câmera → conferência → confirmação</span>
+      <span><strong>Professor</strong> câmera → correção → análise → decisão de publicar</span>
       <i>→</i>
-      <span><strong>Aluno</strong> QR de resultado → devolutiva liberada</span>
+      <span><strong>Aluno</strong> QR de resultado → dados somente após publicação</span>
     </div>
   </section>
 
   <section class="card note">
-    <b>Captura guiada:</b> nesta versão o QR é a âncora geométrica principal quando seus quatro cantos estão disponíveis; os marcadores impressos ficam como referência e fallback. Após o PLIM, o quadro usado na leitura fica congelado e os círculos vermelhos mostram onde o OMR procurou as alternativas.
+    <b>Captura:</b> o corretor faz uma micro-rajada, escolhe o melhor quadro pela geometria e nitidez e usa o QR como âncora principal. Leituras ambíguas não são confirmadas automaticamente.
+    <br><br><b>Fila local:</b> respostas e metadados mínimos ficam no <code>localStorage</code> deste navegador até o Google confirmar. A fila pode ser enviada depois em um único comando.
     <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
   </section>
 </main>
@@ -115,5 +156,6 @@
 <script src="qr-anchor.js"></script>
 <script src="capture-gate.js"></script>
 <script src="diagnostic.js"></script>
+<script src="series-mode.js"></script>
 </body>
 </html>
