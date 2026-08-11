@@ -9,7 +9,7 @@
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>ambiente do professor · v0.9</small></div>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v0.10</small></div>
   <span id="counter">0 confirmadas</span>
 </header>
 <main>
@@ -84,7 +84,7 @@
   </section>
 
   <section class="card note">
-    <b>Captura guiada:</b> aproxime os quatro quadrados impressos dos quatro cantos da moldura. O corretor valida QR + quatro marcadores de referência + geometria plausível e corrige a perspectiva antes de ler as alternativas.
+    <b>Captura guiada:</b> aproxime os quatro quadrados impressos dos quatro cantos da moldura. Após o PLIM, o quadro usado na leitura fica congelado e os círculos vermelhos mostram exatamente onde o OMR procurou as alternativas.
     <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
   </section>
 </main>
@@ -113,5 +113,6 @@
 <script src="bridge.js"></script>
 <script src="app.js"></script>
 <script src="capture-gate.js"></script>
+<script src="diagnostic.js"></script>
 </body>
 </html>
