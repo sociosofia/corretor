@@ -1,6 +1,7 @@
-/* Sociosofia OMR · v0.7
-   Janela de captura humana: duas confirmações boas dentro de uma janela curta,
-   sem exigir quadros perfeitos consecutivos. Uma oscilação breve não zera o enquadramento.
+/* Sociosofia OMR · v0.11
+   Captura humana + QR como âncora geométrica primária quando cornerPoints
+   estiverem disponíveis. Os marcadores visuais passam a ser fallback/validação,
+   não a única fonte da homografia.
 */
 
 let captureLock={token:'',hits:0,startedAt:0,lastGoodAt:0,best:null,bestScore:Infinity};
@@ -21,18 +22,25 @@ analyzeLive=async function(){
 
   const img=wctx.getImageData(0,0,work.width,work.height);
   const qr=await detectQR();
-  const corners=detectMarkers(img,qr.box);
-  const align=drawGuide(corners);
+
+  // Preferência: geometria extrapolada dos quatro cantos do QR.
+  // Fallback: detector visual dos quatro finders impressos.
+  let corners=null,anchor='finders';
+  if(qr.text?.startsWith('C1:')&&typeof qrAnchorUsable==='function'){
+    corners=qrAnchorUsable(qr,work.width,work.height);
+    if(corners)anchor='QR';
+  }
+  if(!corners)corners=detectMarkers(img,qr.box);
+
+  const align=drawGuide(corners||[]);
   const now=performance.now();
 
-  markersText.textContent=`${corners.length}/4`;
+  markersText.textContent=anchor==='QR'?'QR → 4/4':`${(corners||[]).length}/4`;
   qrText.textContent=qr.text||'—';
 
-  const good=corners.length===4&&align.ok&&qr.text.startsWith('C1:');
+  const good=(corners||[]).length===4&&align.ok&&qr.text.startsWith('C1:');
 
   if(!good){
-    /* Histerese: depois de um bom enquadramento, tolera ~0,75 s de oscilação.
-       Assim um pequeno tremor não obriga o professor a começar de novo. */
     if(captureLock.hits>0 && now-captureLock.lastGoodAt<750){
       status('Enquadramento travado ✓ — pode oscilar um pouco');
       stateText.textContent='travado';
@@ -40,14 +48,17 @@ analyzeLive=async function(){
     }
 
     resetCaptureLock();
-    status(corners.length===4&&align.ok&&!qr.text.startsWith('C1:')
-      ?'Cantos alinhados — procurando QR'
-      :alignmentHint(corners,align));
-    stateText.textContent=corners.length===4?'alinhando':'enquadrando';
+    if(qr.text.startsWith('C1:')&&anchor!=='QR'){
+      status('QR lido — ajustando referência da folha');
+    }else{
+      status((corners||[]).length===4&&align.ok&&!qr.text.startsWith('C1:')
+        ?'Cantos alinhados — procurando QR'
+        :alignmentHint(corners||[],align));
+    }
+    stateText.textContent=(corners||[]).length===4?'alinhando':'enquadrando';
     return;
   }
 
-  /* Novo QR ou uma tentativa antiga demais: começa uma janela nova. */
   if(captureLock.token!==qr.text || (captureLock.startedAt && now-captureLock.startedAt>1400)){
     resetCaptureLock();
     captureLock.token=qr.text;
@@ -57,26 +68,24 @@ analyzeLive=async function(){
   captureLock.hits++;
   captureLock.lastGoodAt=now;
 
-  /* Guarda o melhor quadro visto durante a pequena janela, não necessariamente o último. */
-  const score=captureQuality_(align);
+  const score=captureQuality_(align)+(anchor==='QR'?-.06:0);
   if(score<captureLock.bestScore){
     captureLock.bestScore=score;
     captureLock.best={
       token:qr.text,
       corners:corners.map(p=>({x:p.x,y:p.y})),
-      img:img
+      img:img,
+      anchor
     };
   }
 
   if(captureLock.hits<2){
-    status('Enquadrado ✓ — só mais um instante');
-    stateText.textContent='travado';
+    status(anchor==='QR'?'QR ancorado ✓ — só mais um instante':'Enquadrado ✓ — só mais um instante');
+    stateText.textContent=anchor==='QR'?'QR ancorado':'travado';
     return;
   }
 
-  /* Duas boas confirmações podem ser intercaladas por um tremor curto.
-     Na prática, a captura acontece em ~0,2–0,7 s depois do primeiro encaixe bom. */
-  const snap=captureLock.best||{token:qr.text,corners,img};
+  const snap=captureLock.best||{token:qr.text,corners,img,anchor};
   resetCaptureLock();
   status('Capturando…');
   stateText.textContent='capturando';
