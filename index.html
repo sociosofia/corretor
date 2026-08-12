@@ -10,7 +10,7 @@
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>ambiente do professor · v1.1 operacional</small></div>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v1.2 operacional</small></div>
   <span id="counter">0 confirmadas</span>
 </header>
 <main>
@@ -25,8 +25,10 @@
 
   <section class="card controls">
     <button class="primary" id="startBtn">Ligar câmera</button>
+    <button id="retryCaptureBtn" disabled>Reiniciar leitura</button>
     <button id="manualBtn" disabled>Capturar agora</button>
     <label class="fileBtn">Testar foto<input id="fileInput" type="file" accept="image/*"></label>
+    <label class="fileBtn">Ler PDF<input id="pdfInput" type="file" accept="application/pdf,.pdf"></label>
     <button class="danger" id="clearBtn">Limpar sessão</button>
   </section>
 
@@ -46,17 +48,17 @@
     <div class="sectionHead">
       <div>
         <div class="sectionTitle">Operação em série</div>
-        <small>Leituras seguras seguem sozinhas; qualquer dúvida para na revisão.</small>
+        <small>Seguras entram como prontas; dúvidas entram em revisão. Nenhuma interrompe a pilha.</small>
       </div>
       <span id="seriesBadge" class="connBadge wait">verificando backend</span>
     </div>
 
     <div class="seriesOptions">
-      <label class="checkLine"><input id="autoSafe" type="checkbox" checked><span><b>Confirmar automaticamente leituras seguras</b><small>Somente 100% válidas, com margem de confiança e âncora QR.</small></span></label>
-      <label class="selectLine"><span><b>Depois de uma leitura segura</b><small>Mesmo no envio imediato, uma cópia fica primeiro na fila local até o Google confirmar.</small></span>
+      <label class="checkLine"><input id="autoSafe" type="checkbox" checked><span><b>Fluxo contínuo</b><small>Classifica, guarda no cache e prepara a próxima folha sem abrir a revisão.</small></span></label>
+      <label class="selectLine"><span><b>Destino das leituras seguras</b><small>Guardar primeiro é o modo recomendado para corrigir uma pilha e enviar depois.</small></span>
         <select id="queueDestination">
-          <option value="immediate">Enviar ao Google na hora</option>
           <option value="local">Guardar neste aparelho</option>
+          <option value="immediate">Enviar ao Google na hora</option>
         </select>
       </label>
     </div>
@@ -72,6 +74,7 @@
       <button id="reviewNextBtn">Revisar próxima pendente</button>
     </div>
     <div id="batchStatus" class="sendStatus"></div>
+    <div id="pdfStatus" class="sendStatus"></div>
     <details class="queueDetails">
       <summary>Ver fila local</summary>
       <div id="queueList" class="queueList"></div>
@@ -98,35 +101,37 @@
   <section id="reviewCard" class="card reviewCard hidden">
     <div class="sectionHead">
       <div>
-        <div class="sectionTitle">Conferência antes de gravar</div>
+        <div class="sectionTitle">Revisão de uma leitura separada</div>
         <small id="proofMeta">—</small>
       </div>
       <span class="reviewTag">PROFESSOR</span>
     </div>
-    <p class="reviewHelp">A câmera propõe a leitura. O modo automático só passa adiante quando todos os itens atingem o piso de segurança.</p>
+    <p class="reviewHelp">Este painel só aparece quando você decide revisar uma pendência ou desliga o fluxo contínuo.</p>
     <div id="reviewSafety" class="reviewSafety"></div>
     <div id="reviewRows" class="reviewRows"></div>
     <div id="sendStatus" class="sendStatus"></div>
     <div class="reviewActions">
       <button class="primary" id="sendGoogleBtn">Confirmar e enviar ao Google</button>
       <button id="saveQueueBtn">Confirmar e guardar</button>
-      <button id="stashReviewBtn">Separar para depois</button>
-      <button id="reprocessBtn">Ler novamente</button>
+      <button id="stashReviewBtn">Manter para depois</button>
+      <button id="reprocessBtn">Fechar revisão</button>
     </div>
   </section>
 
   <section class="card flowCard">
     <b>Correção, conciliação e publicação são etapas diferentes</b>
     <div class="flow">
-      <span><strong>Professor</strong> captura → correção → conciliação → análise → decisão de publicar</span>
+      <span><strong>Professor</strong> captura/PDF → fila → revisão necessária → Google → conciliação → análise</span>
       <i>→</i>
       <span><strong>Aluno</strong> QR de resultado → dados somente após publicação</span>
     </div>
   </section>
 
   <section class="card note">
-    <b>Captura:</b> o corretor faz uma micro-rajada, escolhe o melhor quadro pela geometria e nitidez e usa o QR como âncora principal. Leituras ambíguas não são confirmadas automaticamente.
-    <br><br><b>Fila local:</b> respostas e metadados mínimos ficam no <code>localStorage</code> deste navegador até o Google confirmar. A fila pode ser enviada depois em um único comando.
+    <b>Captura contínua:</b> o corretor faz uma micro-rajada, escolhe o melhor quadro e segue. Uma leitura segura vira “pronta”; uma leitura com ressalva vira “revisão”, mas a pilha não para.
+    <br><br><b>Reiniciar leitura:</b> se a câmera perdeu o instante bom ou você quiser substituir uma leitura recém-guardada, use “Reiniciar leitura” mantendo a mesma folha no enquadramento.
+    <br><br><b>PDF:</b> o arquivo é processado localmente página a página. Só páginas com QR de correção entram no OMR; a ordem das turmas e dos alunos pode estar misturada. O envio ao Google continua sendo uma etapa separada.
+    <br><br><b>Fila local:</b> respostas e metadados mínimos ficam no <code>localStorage</code> deste navegador até o Google confirmar.
     <br><br><b>Conciliação:</b> o backend v0.3 compara as provas esperadas com as situações já conhecidas por turma e aplicação. Correções podem atravessar dias e lotes mistos antes do fechamento.
     <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
   </section>
