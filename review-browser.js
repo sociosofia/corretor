@@ -65,20 +65,29 @@
   }
   window.__omrOpenReviewById=openById_;
 
-  // O botão principal também passa a respeitar a ordem nominal por turma.
   const next=document.getElementById('reviewNextBtn');
   if(next)next.onclick=()=>{const rec=sorted_().find(r=>r.state==='review');if(!rec)return alert('Não há revisões pendentes neste filtro.');openById_(rec.id)};
 
-  // Enriquecimento leve para filas antigas: só tenta nomes ausentes e limita a cadência.
+  // Filas capturadas antes de o backend devolver nome/turma podem ter só o token.
+  // Enriquecemos aos poucos para não martelar o Apps Script, repetindo os lotes até
+  // toda a fila antiga ficar nominal.
+  let hydrating=false;
   async function hydrateMissing_(){
-    if(!Bridge?.ready?.())return;
-    const q=readQueue_(),missing=q.filter(r=>r.state==='review'&&!r.meta?.nome).slice(0,24);if(!missing.length)return;
-    let changed=false;
+    if(hydrating||!Bridge?.ready?.())return;
+    const q=readQueue_(),missing=q.filter(r=>r.state==='review'&&!r.meta?.nome).slice(0,18);
+    if(!missing.length)return;
+    hydrating=true;let changed=false;
     for(const r of missing){
       try{const m=await Bridge.identify(r.token);if(m?.ok){r.meta={...(r.meta||{}),...m,local:false};changed=true}}catch(e){}
-      await new Promise(res=>setTimeout(res,90));
+      await new Promise(res=>setTimeout(res,110));
     }
-    if(changed){localStorage.setItem(QUEUE_KEY,JSON.stringify(q));render_()}
+    if(changed){
+      const live=readQueue_();
+      for(const enriched of q){const i=live.findIndex(x=>x.id===enriched.id);if(i>=0&&enriched.meta?.nome)live[i].meta=enriched.meta}
+      localStorage.setItem(QUEUE_KEY,JSON.stringify(live));render_();
+    }
+    hydrating=false;
+    if(readQueue_().some(r=>r.state==='review'&&!r.meta?.nome))setTimeout(hydrateMissing_,850);
   }
 
   search.oninput=render_;filter.onchange=render_;
