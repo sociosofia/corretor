@@ -1,4 +1,4 @@
-/* Sociosofia OMR · v1.3.2
+/* Sociosofia OMR · v1.3.3
    Atalho seguro para o painel de conciliação servido pelo Apps Script v0.3+.
    Também carrega QR fallback, precisão, revisão nominal e scanner PDF robusto.
 */
@@ -53,7 +53,7 @@
     return new Promise(resolve=>{
       if(document.querySelector(`script[data-sociosofia-ext="${src}"]`))return resolve();
       const s=document.createElement('script');
-      s.src=src+'?v=1.3.2';
+      s.src=src+'?v=1.3.3';
       s.async=false;
       s.dataset.sociosofiaExt=src;
       s.onload=()=>resolve();
@@ -68,6 +68,6 @@
     await loadExtension('review-browser.js');
     await loadExtension('pdf-scan-v132.js');
     const small=document.querySelector('header .top small, header small');
-    if(small&&/v1\./.test(small.textContent))small.textContent='ambiente do professor · v1.3.2 operacional';
+    if(small&&/v1\./.test(small.textContent))small.textContent='ambiente do professor · v1.3.3 operacional';
   })();
 })();
