@@ -1,6 +1,6 @@
-/* Sociosofia OMR · v1.3
+/* Sociosofia OMR · v1.3.1
    Atalho seguro para o painel de conciliação servido pelo Apps Script v0.3+.
-   Também carrega as extensões de precisão e revisão nominal da operação em série.
+   Também carrega as extensões de QR fallback, precisão e revisão nominal.
 */
 (()=>{
   const btn=document.getElementById('openReconcileBtn');
@@ -50,13 +50,24 @@
   }
 
   function loadExtension(src){
-    if(document.querySelector(`script[data-sociosofia-ext="${src}"]`))return;
-    const s=document.createElement('script');
-    s.src=src+'?v=1.3.0';
-    s.async=false;
-    s.dataset.sociosofiaExt=src;
-    document.body.appendChild(s);
+    return new Promise(resolve=>{
+      if(document.querySelector(`script[data-sociosofia-ext="${src}"]`))return resolve();
+      const s=document.createElement('script');
+      s.src=src+'?v=1.3.1';
+      s.async=false;
+      s.dataset.sociosofiaExt=src;
+      s.onload=()=>resolve();
+      s.onerror=()=>resolve();
+      document.body.appendChild(s);
+    });
   }
-  loadExtension('precision-v13.js');
-  loadExtension('review-browser.js');
+
+  // Ordem importante: o fallback precisa envolver detectQR antes do uso por câmera/PDF.
+  (async()=>{
+    await loadExtension('qr-fallback.js');
+    await loadExtension('precision-v13.js');
+    await loadExtension('review-browser.js');
+    const small=document.querySelector('header .top small, header small');
+    if(small&&/v1\./.test(small.textContent))small.textContent='ambiente do professor · v1.3.1 operacional';
+  })();
 })();
