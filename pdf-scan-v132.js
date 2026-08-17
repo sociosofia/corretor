@@ -1,11 +1,11 @@
-/* Sociosofia OMR · PDF scanner v1.3.2
-   Scanner/PDF usa os quatro marcadores físicos como geometria primária.
-   O QR serve para identidade e como fallback geométrico. Tenta rotações 0/180/90/270
-   quando necessário e preserva a fila local existente.
+/* Sociosofia OMR · PDF scanner v1.3.3
+   Scanner/PDF usa o QR como referência geométrica primária, com cantos normalizados.
+   Os marcadores físicos servem como fallback/validação. Tenta rotações 0/180/90/270,
+   preserva a fila e recusa leituras geometricamente vazias em vez de inventar 8 brancos.
 */
 (()=>{
-  if(window.__omrPdfScanV132)return;
-  window.__omrPdfScanV132=true;
+  if(window.__omrPdfScanV133)return;
+  window.__omrPdfScanV133=true;
 
   const input=document.getElementById('pdfInput');
   const pdfStatus=document.getElementById('pdfStatus');
@@ -23,7 +23,6 @@
   function readQueue_(){try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]')||[]}catch(e){return[]}}
   function saveQueue_(q){localStorage.setItem(QUEUE_KEY,JSON.stringify(q))}
   function requestId_(){return'cap_'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g,'')}
-  function median_(a){const v=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!v.length)return 0;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2}
   function localConfirmed_(token){try{return Array.isArray(captures)&&captures.includes(token)}catch(e){return false}}
 
   async function pdfLib_(){
@@ -35,7 +34,18 @@
     if(!qr?.box||!corners||corners.length!==4)return null;
     const cx=qr.box.x+qr.box.width/2,cy=qr.box.y+qr.box.height/2;
     const xs=corners.map(p=>p.x),ys=corners.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    if(maxX===minX||maxY===minY)return null;
     return {nx:(cx-minX)/(maxX-minX),ny:(cy-minY)/(maxY-minY)};
+  }
+
+  function markerGeometryPlausible_(qr,corners){
+    if(!corners||corners.length!==4)return false;
+    const [tl,tr,bl,br]=corners;
+    const top=Math.hypot(tr.x-tl.x,tr.y-tl.y),bot=Math.hypot(br.x-bl.x,br.y-bl.y);
+    const left=Math.hypot(bl.x-tl.x,bl.y-tl.y),right=Math.hypot(br.x-tr.x,br.y-tr.y);
+    const ratio=((top+bot)/2)/Math.max(1,(left+right)/2);
+    const pos=qrPositionInside_(qr,corners);
+    return ratio>1.75&&ratio<2.75&&pos&&pos.nx>.72&&pos.nx<1.02&&pos.ny>.15&&pos.ny<.86;
   }
 
   async function renderOrientation_(page,angle,targetW=1650){
@@ -50,18 +60,19 @@
     if(!qr?.text?.startsWith('C1:'))return null;
     const img=wctx.getImageData(0,0,work.width,work.height);
 
-    // Scanner é plano: os quatro quadrados impressos são a melhor referência geométrica.
-    let corners=detectMarkers(img,qr.box),anchor='MARKERS_PDF';
-    if(!corners||corners.length!==4){
-      corners=typeof qrAnchorUsable==='function'?qrAnchorUsable(qr,work.width,work.height):null;
-      if(corners&&corners.length===4)anchor='QR';
-    }
-    if(!corners||corners.length!==4)return {qr,img,corners:null,anchor:'NONE',rotation};
+    // Para scan plano, o QR já é um fiducial excelente e conhecido no formulário.
+    // A normalização dos cantos (v1.3.3) torna isso robusto mesmo quando o PDF traz rotação 180°.
+    let corners=typeof qrAnchorUsable==='function'?qrAnchorUsable(qr,work.width,work.height):null;
+    let anchor=corners&&corners.length===4?'QR_SCAN':'NONE';
 
-    // Na orientação canônica o QR fica no lado direito da moldura. Se estiver claramente
-    // à esquerda, esta rotação não é a correta; tentaremos a seguinte.
-    const pos=qrPositionInside_(qr,corners);
-    if(anchor==='MARKERS_PDF'&&pos&&pos.nx<.52)return {qr,img,corners:null,anchor:'ROTATE',rotation};
+    // Fallback: só aceitamos marcadores físicos se a geometria também colocar o QR
+    // no setor canônico direito da moldura. Isso evita escolher bolhas/textos como cantos.
+    if(!corners||corners.length!==4){
+      const m=detectMarkers(img,qr.box);
+      if(markerGeometryPlausible_(qr,m)){corners=m;anchor='MARKERS_PDF'}
+    }
+
+    if(!corners||corners.length!==4)return {qr,img,corners:null,anchor:'NONE',rotation};
     return {qr,img,corners,anchor,rotation};
   }
 
@@ -79,6 +90,10 @@
   function safePdf_(rows,anchor){
     const reasons=[];
     if(!rows?.length)reasons.push('sem respostas');
+    const globalMax=rows?.length?Math.max(...rows.map(r=>Number(r.max||0))):0;
+    // O contorno vazio costuma produzir algum sinal. 0,00 em todas as questões indica
+    // grade projetada fora da área útil, não oito respostas em branco.
+    if(globalMax<.16)reasons.push('geometria OMR inválida');
     if(rows.some(r=>r.state!=='válida'))reasons.push('há item não válido');
     const minTop=rows.length?Math.min(...rows.map(r=>Number(r.max||0))):0;
     const minGap=rows.length?Math.min(...rows.map(r=>Number(r.gap||0))):0;
@@ -86,8 +101,12 @@
     if(minTop<.42)reasons.push('confiança < 0,42');
     if(minGap<.15)reasons.push('Δ < 0,15');
     if(minContrast<.18)reasons.push('contraste < 0,18');
-    if(anchor!=='MARKERS_PDF'&&anchor!=='QR')reasons.push('geometria sem referência');
-    return {ok:reasons.length===0,reasons,minTop,minGap,minContrast};
+    if(anchor!=='QR_SCAN'&&anchor!=='MARKERS_PDF')reasons.push('geometria sem referência');
+    return {ok:reasons.length===0,reasons,minTop,minGap,minContrast,globalMax};
+  }
+
+  function staleZeroPdf_(rec){
+    return rec?.source==='pdf'&&Array.isArray(rec.rows)&&rec.rows.length>0&&rec.rows.every(r=>Number(r.max||0)<=.05);
   }
 
   function upsert_(q,p,finalAnswers,state){
@@ -103,8 +122,8 @@
   }
 
   function restoreSummary_(){
-    const raw=sessionStorage.getItem('sociosofia_pdf_summary_v132');if(!raw)return;
-    sessionStorage.removeItem('sociosofia_pdf_summary_v132');
+    const raw=sessionStorage.getItem('sociosofia_pdf_summary_v133');if(!raw)return;
+    sessionStorage.removeItem('sociosofia_pdf_summary_v133');
     try{const x=JSON.parse(raw);setPdf_(x.text,x.kind||'ok');setBatch_('PDF processado localmente. A fila já foi recarregada e está pronta para conferência.','ok')}catch(e){}
   }
 
@@ -113,7 +132,7 @@
     if(!Bridge?.ready?.())return setPdf_('Configure o backend do Google antes de importar um PDF real.','err');
     busy=true;input.disabled=true;
     const wasRunning=typeof running!=='undefined'?running:false;if(typeof running!=='undefined')running=false;
-    let found=0,ready=0,review=0,duplicates=0,skipped=0;const errors=[];
+    let found=0,ready=0,review=0,duplicates=0,replaced=0,skipped=0;const errors=[];
     try{
       setPdf_('Abrindo PDF…','wait');
       const pdfjs=await pdfLib_(),bytes=new Uint8Array(await file.arrayBuffer()),doc=await pdfjs.getDocument({data:bytes}).promise;
@@ -126,18 +145,25 @@
         if(!r?.qr?.text?.startsWith('C1:')){skipped++;continue}
         found++;
         const token=r.qr.text;
-        if(q.some(x=>x.token===token)||localConfirmed_(token)){duplicates++;continue}
+
+        const local=q.find(x=>x.token===token);
+        if(local){
+          if(staleZeroPdf_(local)){q=q.filter(x=>x.id!==local.id);replaced++}
+          else{duplicates++;continue}
+        }
+        if(localConfirmed_(token)){duplicates++;continue}
 
         let meta;
         try{meta=await identifyToken(token)}catch(e){errors.push({page:pageNo,stage:'identificação'});continue}
         if(meta?.ja_confirmada){duplicates++;continue}
-        if(!r.corners||r.corners.length!==4){errors.push({page:pageNo,stage:'marcadores'});continue}
+        if(!r.corners||r.corners.length!==4){errors.push({page:pageNo,stage:'geometria'});continue}
 
         try{
           if(!getOmrModel(meta.modelo_omr))throw new Error('modelo OMR não suportado');
           const qtd=Number(meta.qtd_questoes||8);
           const rows=classify(bubbleScores(r.img,r.corners,meta.modelo_omr,qtd),qtd);
           const s=safePdf_(rows,r.anchor);
+          if(s.globalMax<.16)throw new Error('grade OMR fora da área útil');
           const p={token,rows,meta,sourcePage:pageNo,burst:{frames:1,elapsedMs:0,anchor:r.anchor,source:'pdf',rotation:r.rotation}};
           if(s.ok){upsert_(q,p,rows.map(x=>x.answer),'ready');ready++}
           else{upsert_(q,p,null,'review');review++}
@@ -146,11 +172,12 @@
       }
 
       const parts=[`${found} folha(s) OMR encontrada(s)`,`${ready} pronta(s)`,`${review} para revisão`];
+      if(replaced)parts.push(`${replaced} leitura(s) zerada(s) substituída(s)`);
       if(duplicates)parts.push(`${duplicates} duplicata(s) ignorada(s)`);
       if(skipped)parts.push(`${skipped} página(s) sem QR de correção`);
       if(errors.length)parts.push('falha: '+errors.slice(0,5).map(e=>`p.${e.page} ${e.stage}`).join(', ')+(errors.length>5?'…':''));
       const text=parts.join(' · ')+(errors.length?'':' ✓');
-      sessionStorage.setItem('sociosofia_pdf_summary_v132',JSON.stringify({text,kind:errors.length?'err':'ok'}));
+      sessionStorage.setItem('sociosofia_pdf_summary_v133',JSON.stringify({text,kind:errors.length?'err':'ok'}));
       setPdf_(text,errors.length?'err':'ok');
       setBatch_('Atualizando a fila local…','wait');
       setTimeout(()=>location.reload(),650);
