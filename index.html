@@ -10,7 +10,7 @@
 </head>
 <body>
 <header class="top">
-  <div><b>Corretor OMR</b><small>ambiente do professor · v1.2 operacional</small></div>
+  <div><b>Corretor OMR</b><small>ambiente do professor · v1.3.4 operacional</small></div>
   <span id="counter">0 confirmadas</span>
 </header>
 <main>
@@ -130,7 +130,7 @@
   <section class="card note">
     <b>Captura contínua:</b> o corretor faz uma micro-rajada, escolhe o melhor quadro e segue. Uma leitura segura vira “pronta”; uma leitura com ressalva vira “revisão”, mas a pilha não para.
     <br><br><b>Reiniciar leitura:</b> se a câmera perdeu o instante bom ou você quiser substituir uma leitura recém-guardada, use “Reiniciar leitura” mantendo a mesma folha no enquadramento.
-    <br><br><b>PDF:</b> o arquivo é processado localmente página a página. Só páginas com QR de correção entram no OMR; a ordem das turmas e dos alunos pode estar misturada. O envio ao Google continua sendo uma etapa separada.
+    <br><br><b>PDF:</b> o arquivo é processado localmente página a página. No scanner v1.3.4, os quatro marcadores físicos são a referência geométrica principal; o QR identifica a prova e funciona como fallback. Reimportar o mesmo PDF pode recalibrar revisões antigas sem duplicar provas nem sobrescrever correções já confirmadas.
     <br><br><b>Fila local:</b> respostas e metadados mínimos ficam no <code>localStorage</code> deste navegador até o Google confirmar.
     <br><br><b>Conciliação:</b> o backend v0.3 compara as provas esperadas com as situações já conhecidas por turma e aplicação. Correções podem atravessar dias e lotes mistos antes do fechamento.
     <br><br><b>Privacidade:</b> este GitHub público não contém gabaritos, lista de alunos, URL do Apps Script nem chave do professor.
@@ -164,6 +164,7 @@
 <script src="capture-gate.js"></script>
 <script src="diagnostic.js"></script>
 <script src="series-mode.js"></script>
+<script src="pdf-scan-v134.js"></script>
 <script src="cache-export.js"></script>
 <script src="reconciliation-link.js"></script>
 </body>
