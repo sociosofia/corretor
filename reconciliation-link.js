@@ -1,7 +1,7 @@
-/* Sociosofia OMR · v1.3.4
+/* Sociosofia OMR · v1.3.5
    Atalho seguro para o painel de conciliação servido pelo Apps Script v0.3+.
-   Carrega apenas extensões complementares. O scanner PDF v1.3.4 é carregado
-   diretamente pelo index.html e NUNCA deve ser substituído por uma versão antiga.
+   O scanner PDF e o fallback de QR são carregados diretamente pelo index.html;
+   este arquivo carrega apenas extensões complementares e não sobrescreve versão.
 */
 (()=>{
   const btn=document.getElementById('openReconcileBtn');
@@ -54,7 +54,7 @@
     return new Promise(resolve=>{
       if(document.querySelector(`script[data-sociosofia-ext="${src}"]`))return resolve();
       const s=document.createElement('script');
-      s.src=src+'?v=1.3.4';
+      s.src=src+'?v=1.3.5';
       s.async=false;
       s.dataset.sociosofiaExt=src;
       s.onload=()=>resolve();
@@ -64,14 +64,9 @@
   }
 
   (async()=>{
-    await loadExtension('qr-fallback.js');
     await loadExtension('precision-v13.js');
     await loadExtension('review-browser.js');
-
-    // IMPORTANTE: não carregar pdf-scan-v132.js aqui. Ele sobrescrevia o handler
-    // do seletor de PDF depois que a v1.3.4 já havia sido carregada, fazendo a
-    // interface "voltar" visual e funcionalmente para a v1.3.3.
     const small=document.querySelector('header .top small, header small');
-    if(small&&/v1\./.test(small.textContent))small.textContent='ambiente do professor · v1.3.4 operacional';
+    if(small&&/v1\./.test(small.textContent))small.textContent='ambiente do professor · v1.3.5 operacional';
   })();
 })();
